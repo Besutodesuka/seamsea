@@ -1,36 +1,90 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EditScreenInfo from '@/components/EditScreenInfo';
 import { Text, View } from '@/components/Themed';
 import BottleAnimation from '@/components/BottleAnimation';
 import { Modal, Button, StyleSheet } from 'react-native';
 
+import { Alert } from 'react-native';
+import {Picker} from '@react-native-picker/picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export default function HomeScreen() {
   const [selectedItem, setSelectedItem] = useState(null);
-  const [pools, setPools] = useState([
-    { name: 'Example Pool', items: ['Alice', 'Bob', 'Charlie'] },
-  ]);
-  const [selectedPool, setSelectedPool] = useState(pools[0]);
+  const [pools, setPools] = useState([]);
+  
   const [modalVisible, setModalVisible] = useState(false);
-
   const randomize = () => {
+    if (pools.items.length === 0) {
+      Alert.alert('No items available to randomize.');
+      return;
+    }
     const randomItem =
-      selectedPool.items[Math.floor(Math.random() * selectedPool.items.length)];
+    pools.items[Math.floor(Math.random() * pools.items.length)];
     setSelectedItem(randomItem);
+    setModalVisible(true);
   };
 
-  return (
-    <View style={styles.container}>
-        <Text style={styles.title}> Select a Random Pool</Text>
+  //  for selecteing items
+  
+  const [lists, setLists] = useState([]);
+  const [selectedList, setSelectedList] = useState('');
 
+  // Fetch lists from AsyncStorage
+  const fetchLists = async () => {
+    try {
+      const data = await AsyncStorage.getItem('lists');
+      const parsedData = data ? JSON.parse(data) : [];
+      setLists(parsedData);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load lists from storage.');
+    }
+  };
+
+  const fetchPools = async (listName) => {
+    const data = await AsyncStorage.getItem('lists');
+    const parsedData = data ? JSON.parse(data) : [];
+    const pool = parsedData.find((list) => list.name === listName);
+    if (pool && pool.items.lenght != 0) {
+      setPools(pool); // Update the pools state with the list's items
+    } else {
+      setPools([]); // Reset if the listName is invalid
+    }
+  };
+
+  useEffect(() => {
+    fetchLists();
+  }, []);
+
+  return (
+      <View style={styles.container}>
+        <Text style={styles.title}> Select a Random Pool</Text>
+        <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.5)" />
         {/* this needed to be drop down list select pool we need 
         onselected => (get pool items) => setPools*/}
-        <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.5)" />
 
-        <Text> Selected pool : {selectedPool.name}</Text>
-
+        <View style={styles.picker_feild}>
+          {/* <Text style={styles.label}>Select a List:</Text> */}
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={selectedList}
+              onValueChange={(itemValue) =>{ 
+                setSelectedList(itemValue); 
+                // fetch and update the pool list
+                fetchPools(itemValue);
+              }}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select a list" value="" />
+              {lists.map((list, index) => (
+                <Picker.Item key={index} label={list.name} value={list.name} />
+              ))}
+            </Picker>
+          </View>
+          {selectedList ? <Text style={styles.selectedText}>Selected pool: {selectedList}</Text> : null}
+        </View>
+        <Text >items in pools: {pools.items} ...</Text>
         <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.5)" />
-        
-        <Text style={styles.button} onPress={() => {randomize(); setModalVisible(true);}}>Randomize!</Text>
+        <Text style={styles.button} onPress={() => {randomize();}}>Randomize!</Text>
         {/* <BottleAnimation
         selectedItem={selectedItem}
         rng_fn={randomize}
@@ -56,22 +110,8 @@ export default function HomeScreen() {
         </View>
       </Modal>
     </View>
-  )
+    );
 }
-
-// const styles = StyleSheet.create({
-//   container: { flex: 1, padding: 20, justifyContent: 'center', alignItems: 'center' },
-// });
-
-// export default function TabOneScreen() {
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.title}>Home</Text>
-//       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-//       <EditScreenInfo path="app/(tabs)/index.tsx" />
-//     </View>
-//   );
-// }
 
 const styles = StyleSheet.create({
   container: {
@@ -113,5 +153,29 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     textAlign: 'center',
     fontSize: 18,
+  },
+  label: {
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  picker: {
+    height: 200,
+    width: 300,
+  },
+  selectedText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  picker_feild: {
+    justifyContent: 'center',
+    padding: 4,
   },
 });
